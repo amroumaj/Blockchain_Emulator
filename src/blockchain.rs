@@ -1,11 +1,8 @@
-extern crate time;
-extern crate serde;
-extern crate serde_json;
-extern crate sha2;
+use serde_derive::{Serialize};
+use sha2::{Digest, Sha256};
+use std::fmt::Write;
 
-use serde_derive::Serialize;
-use sha2 :: {digest::block_buffer::Block, Digest, Sha256};
-use std::{  fmt :: Write, hash::Hasher};
+use chrono::prelude::*;
 
 #[derive(Debug, Clone, Serialize)]
 struct Transction {
@@ -22,17 +19,17 @@ pub struct BlockHeader {
     merkle: String,
     difficulty: u32
 }
-
-pub struct header {
+#[derive(Serialize, Debug)]
+pub struct Block {
     header: BlockHeader,
     count: u32,
-    transactions: Vec<Transction>
+    transactions: Vec<Transction>,
 }
 
 pub struct Chain {
     chain: Vec<Block>,
-    curr_time: Vec<Transction>,
-    difficulty: i32,
+    curr_trans: Vec<Transction>,
+    difficulty: u32,
     miner_addr: String,
     reward: f32
 }
@@ -44,8 +41,9 @@ impl Chain {
             curr_trans: Vec::new(),
             difficulty,
             miner_addr,
-            reward: 100.0
+            reward: 100.0,
         };
+
         
         chain.generate_new_block();
         chain
@@ -58,7 +56,7 @@ impl Chain {
             amount
         });
         
-        true;
+        true
     }
 
     pub fn last_hash(&self) -> String {
@@ -71,20 +69,20 @@ impl Chain {
     
     pub fn update_difficulty (&mut self, difficulty: u32) -> bool {
         self.difficulty = difficulty;
-        true;
+        true
     }
     
     pub fn update_reward(&mut self, reward: f32) -> bool {
         self.reward = reward;
-        true;
+        true
     }
     
     pub fn generate_new_block(&mut self) -> bool {
         let header = BlockHeader {
-            timestamp: tiem:: now().to_timestamp().sec,
-            nonce = 0,
+            timestamp: Utc::now().timestamp_millis(),
+            nonce: 0,
             pre_hash: self.last_hash(),
-            merkle: String,
+            merkle: String::new(),
             difficulty: self.difficulty
         };
 
@@ -97,14 +95,14 @@ impl Chain {
         let mut block = Block {
             header,
             count: 0,
-            transactions: Vec![]
+            transactions: vec![]
         };
 
         block.transactions.push(reward_trans);
         block.transactions.append(&mut self.curr_trans);
         block.count = block.transactions.len() as u32;
         block.header.merkle = Chain::get_merkle(block.transactions.clone());
-        Chain::proof_of_work(&mut blcok.header);
+        Chain::proof_of_work(&mut block.header);
 
         println!("{:?}", &block);
         self.chain.push(block);
@@ -139,7 +137,7 @@ impl Chain {
             let hash  = Chain::hash(header);
             let slice = &hash[..header.difficulty as usize];
             match slice.parse::<u32>() {
-                ok (val) => {
+                Ok (val) => {
                     if val != 0 {
                         header.nonce += 1;
                     } else {
@@ -155,20 +153,20 @@ impl Chain {
         }
     }
     
-    pub fn hash<T: serde::Serialize>(item:&T) -> String {
+    pub fn hash<T: serde::Serialize>(item: &T) -> String {
         let input = serde_json::to_string(&item).unwrap();
-        let mut hasher = sha256::default();
-        hasher,input(input.as_bytes());
-        let res = hasher.result();
+        let mut hasher = Sha256::new();
+        hasher.update(input.as_bytes());
+        let res = hasher.finalize();
         let vec_res = res.to_vec();
-        
+
         Chain::hex_to_string(vec_res.as_slice())
     }
     
-    pub fn hex_to_string(vec_to_string: &[u8]) -> String {
+    pub fn hex_to_string(vec_res: &[u8]) -> String {
         let mut s = String::new();
         for b in vec_res {
-            write!(&mut s, "{:x}", b).expect("unable to write")
+            write!(&mut s, "{:x}", b).expect("unable to write");
         }
         s
     }
